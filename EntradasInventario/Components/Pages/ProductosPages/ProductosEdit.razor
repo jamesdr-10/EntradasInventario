@@ -1,0 +1,131 @@
+@page "/Productos/Edit/{ProductoId:int}"
+@rendermode InteractiveServer
+
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+
+<PageTitle>Editar Producto</PageTitle>
+
+@if (producto == null)
+{
+    <div class="alert alert-danger">
+        <p class="text-center">Este producto no existe o fue eliminado.</p>
+    </div>
+}
+else
+{
+    <EditForm Model="producto" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+
+        <div class="container">
+            <div class="card shadow-lg">
+                <div class="card-header text-center">
+                    <h5 class="card-title">Editar Producto</h5>
+                </div>
+
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="col-form-label fw-bold">ID</label>
+                        <InputNumber class="form-control" @bind-Value="producto.ProductoId" disabled readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="col-form-label fw-bold">Descripción</label>
+                        <InputText class="form-control" @bind-Value="producto.Descripcion" placeholder="Ingrese la descripción" />
+                        <ValidationMessage For="(() => producto.Descripcion)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="col-form-label fw-bold">Costo</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Costo" />
+                        <ValidationMessage For="(() => producto.Costo)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="col-form-label fw-bold">Precio</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Precio" />
+                        <ValidationMessage For="(() => producto.Precio)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="col-form-label fw-bold">Existencia</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Existencia" disabled readonly />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMensaje)) 
+                    {
+                        <div class="alert alert-danger mt-3">@errorMensaje</div>
+                    }
+                </div>
+
+                <div class="card-footer">
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="/Productos/Index" class="btn btn-secondary">
+                            <span class="bi bi-arrow-left"></span> Volver
+                        </a>
+
+                        <button type="submit" class="btn btn-success">
+                            <span class="bi bi-floppy"></span> Guardar
+                        </button>
+
+                        <button type="button" class="btn btn-danger" @onclick="Eliminar">
+                            <span class="bi bi-trash"></span> Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int ProductoId { get; set; }
+    private Productos? producto;
+
+    private string? errorMensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        producto = await productosService.Buscar(ProductoId);
+    }
+
+    private async Task Guardar()
+    {
+        errorMensaje = null;
+
+        if (producto == null) 
+        {
+            errorMensaje = "El producto no existe.";
+            return;
+        }
+
+        if (await productosService.Guardar(producto))
+        {
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            errorMensaje = "No se pudo editar el producto. Intente nuevamente.";
+        }
+    }
+
+    private async Task Eliminar() 
+    {
+        errorMensaje = null;
+
+        if (producto == null) 
+        {
+            errorMensaje = "El producto no existe.";
+            return;
+        }
+
+        if (await productosService.Eliminar(producto.ProductoId)) 
+        {
+            navigationManager.NavigateTo("/Productos/Index");
+        } else 
+        {
+            errorMensaje = "No se puede eliminar el producto porque tiene entradas asociadas.";
+        }
+    }
+}
