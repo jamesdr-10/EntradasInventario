@@ -1,0 +1,156 @@
+@page "/EntradasInventario/Create"
+@rendermode InteractiveServer
+
+@inject EntradasInventarioService entradasInventarioService
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+
+<PageTitle>Crear Entrada</PageTitle>
+
+<EditForm Model="entrada" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">Crear Entrada</h5>
+            </div>
+
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="col-form-label fw-bold">Fecha</label>
+                    <InputDate class="form-control" @bind-Value="entrada.Fecha" />
+                    <ValidationMessage For="(() => entrada.Fecha)"/>
+                </div>
+
+                <div class="mb-3">
+                    <label class="col-form-label fw-bold">Concepto</label>
+                    <InputText class="form-control" @bind-Value="entrada.Concepto" />
+                    <ValidationMessage For="(() => entrada.Concepto)"/>
+                </div>
+
+                <div class="mb-3">
+                    <label class="col-form-label fw-bold">Total</label>
+                    <InputNumber class="form-control" @bind-Value="entrada.Total" disabled readonly />
+                    <ValidationMessage For="(() => entrada.Total)"/>
+                </div>
+
+                <div class="border border-success p-3 mt-3">
+                    <h5>Detalle de Productos</h5>
+
+                    <ProductoPicker Productos="productos"
+                                    ProductoId="entradaDetalleSeleccionado.ProductoId"
+                                    Cantidad="entradaDetalleSeleccionado.Cantidad"
+                                    Costo="entradaDetalleSeleccionado.Costo"
+                                    OnProductoSelected="HandleProductoSelected" />
+
+                    <div class="table-responsive">
+                        <table class="table table-light">
+                            <thead class="table table-striped">
+                                <tr class="text-center">
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio unitario</th>
+                                    <th>Eliminar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entradaDetalle in entrada.EntradaDetalles)
+                                {
+                                    <tr class="text-center">
+                                        <td>@productos.FirstOrDefault(p => p.ProductoId == entradaDetalle.ProductoId)!.Descripcion</td>
+                                        <td>@entradaDetalle.Cantidad</td>
+                                        <td>@entradaDetalle.Costo</td>
+                                        <td>
+                                            <button type="button" class="btn btn-danger bi bi-trash" 
+                                                @onclick="() => EliminarDetalle(entradaDetalle)">
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMensaje)) 
+                {
+                    <div class="alert alert-danger mt-3">@errorMensaje</div>
+                }
+            </div>
+
+            <div class="card-footer">
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="/EntradasInventario/Index" class="btn btn-secondary">
+                        <span class="bi bi-arrow-left"></span> Volver
+                    </a>
+
+                    <button type="submit" class="btn btn-success">
+                        <span class="bi bi-floppy"></span> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</EditForm>
+
+@code {
+    private Entrada entrada = new();
+    private EntradaDetalle entradaDetalleSeleccionado = new();
+    private List<Productos> productos = [];
+    
+    private string? errorMensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await productosService.Listar(p => p.ProductoId > 0);
+    }
+
+    private async Task HandleProductoSelected((Productos producto, int Cantidad, decimal Costo) selection)
+    {
+        var detalle = new EntradaDetalle
+            {
+                ProductoId = selection.producto.ProductoId,
+                Cantidad = selection.Cantidad,
+                Costo = selection.Costo
+            };
+
+        entrada.EntradaDetalles.Add(detalle);
+        entradaDetalleSeleccionado = new EntradaDetalle();
+
+        entrada.Total = entrada.EntradaDetalles.Sum(e => e.Cantidad * e.Costo);
+        productos.FirstOrDefault(p => p.ProductoId == detalle.ProductoId)!.Existencia += detalle.Cantidad;
+
+        await Task.CompletedTask;
+    }
+
+
+    private async Task Guardar()
+    {
+        errorMensaje = null;
+
+        if (!entrada.EntradaDetalles.Any())
+        {
+            errorMensaje = "Debe agregar un detalle para crear una entrada.";
+            return;
+        }
+
+        if (await entradasInventarioService.Guardar(entrada)) 
+        {
+            navigationManager.NavigateTo("/EntradasInventario/Index");
+        } else 
+        {
+            errorMensaje = "No se pudo guardar la entrada. Intente nuevamente.";
+        }
+    }
+
+    private void EliminarDetalle(EntradaDetalle entradaDetalle)
+    {
+        entrada.EntradaDetalles.Remove(entradaDetalle);
+        entradaDetalleSeleccionado = entradaDetalle;
+
+        entrada.Total = entrada.EntradaDetalles.Sum(e => e.Cantidad * e.Costo);
+        productos.FirstOrDefault(p => p.ProductoId == entradaDetalle.ProductoId)!.Existencia -= entradaDetalle.Cantidad;
+    }
+}

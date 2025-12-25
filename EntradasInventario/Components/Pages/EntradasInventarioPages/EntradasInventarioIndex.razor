@@ -1,0 +1,265 @@
+@page "/EntradasInventario/Index"
+@rendermode InteractiveServer
+@inject EntradasInventarioService entradasInventarioService
+
+<PageTitle>Registro de Entradas de Inventario</PageTitle>
+
+<div class="container">
+    <div class="card shadow-lg">
+        <div class="card-header text-center">
+            <h5 class="card-title">Registro de Entradas de Inventario</h5>
+        </div>
+
+        <div class="card-body">
+            <div class="d-flex justify-content-md-end">
+                <a href="/EntradasInventario/Create" class="btn btn-primary">
+                    <span class="bi bi-plus-square mt-3"></span> Crear
+                </a>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="col-form-label fw-bold">Fecha desde</label>
+                    <InputDate class="form-control" @bind-Value="desdeFecha" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="col-form-label fw-bold">Fecha hasta</label>
+                    <InputDate class="form-control" @bind-Value="hastaFecha" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="col-form-label fw-bold">Filtrar por</label>
+                    <InputSelect class="form-select" @bind-Value="filtro">
+                        <option value="">Seleccione una opción</option>
+                        <option value="Id">ID</option>
+                        <option value="Concepto">Concepto</option>
+                        <option value="Total">Total</option>
+                    </InputSelect>
+                </div>
+
+                @if (filtro == "Total")
+                {
+                    <div class="col-md-3">
+                        <label class="col-form-label fw-bold">Total desde</label>
+                        <InputNumber class="form-control" @bind-Value="desdeTotal" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="col-form-label fw-bold">Total hasta</label>
+                        <div class="input-group">
+                            <InputNumber class="form-control" @bind-Value="hastaTotal" />
+
+                            <button class="btn btn-outline-primary" @onclick="Buscar">
+                                <span class="bi bi-search"></span>
+                            </button>
+
+                            <button class="btn btn-outline-secondary" @onclick="LimpiarFiltros">
+                                <span class="bi bi-arrow-clockwise"></span>
+                            </button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="col-md-4">
+                        <label class="col-form-label fw-bold">Búsqueda</label>
+                        <div class="input-group">
+                            <InputText class="form-control" @bind-Value="valorFiltro" disabled=@(filtro == "")
+                                placeholder="Buscar por..." />
+
+                            <button class="btn btn-outline-primary" @onclick="Buscar">
+                                <span class="bi bi-search"></span>
+                            </button>
+
+                            <button class="btn btn-outline-secondary" @onclick="LimpiarFiltros">
+                                <span class="bi bi-arrow-clockwise"></span>
+                            </button>
+                        </div>
+                    </div>
+                }
+
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMensaje)) 
+            {
+                <div class="alert alert-danger mt-3">@errorMensaje</div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr class="text-center">
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Concepto</th>
+                            <th>Total</th>
+                            <th>Editar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!entradas.Any())
+                        {
+                            <tr class="text-center">
+                                <td colspan="5">No hay entradas de inventario disponibles.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var entrada in entradas)
+                            {
+                                <tr class="text-center">
+                                    <td>@entrada.EntradaId</td>
+                                    <td>@entrada.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td>@entrada.Concepto</td>
+                                    <td>@entrada.Total</td>
+                                    <td>
+                                        <a href="/EntradasInventario/Edit/@entrada.EntradaId" class="btn btn-outline-primary">
+                                            <span class="bi bi-pencil"></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-footer d-flex justify-content-between">
+             <label>Total mostrados: @entradas.Count()</label>
+x            <label>Total registrados: @totalEntradas</label>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Entrada> entradas { get; set; } = [];
+
+    private string filtro = string.Empty;
+    private string valorFiltro = string.Empty;
+    private DateTime? desdeFecha;
+    private DateTime? hastaFecha;
+    private decimal? desdeTotal;
+    private decimal? hastaTotal;
+
+    private string? errorMensaje;
+
+    private int totalEntradas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0);
+        totalEntradas = entradas.Count;
+    }
+
+    private async Task Buscar()
+    {
+        errorMensaje = null;
+
+        if (desdeFecha.HasValue ^ hastaFecha.HasValue) 
+        {
+            errorMensaje = "Debe seleccionar ambos rangos de fecha.";
+            return;
+        }
+
+        if (desdeFecha.HasValue && hastaFecha.HasValue) 
+        {
+            if (desdeFecha.Value.Date > hastaFecha.Value.Date) 
+            {
+                errorMensaje = "La fecha desde no puede ser mayor que la fecha hasta.";
+                return;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(filtro))
+        {
+            if (filtro == "Id")
+            {
+                if (!int.TryParse(valorFiltro, out int idEntrada))
+                {
+                    errorMensaje = "Debe introducir un ID válido.";
+                    return;
+                }
+                
+                if (desdeFecha.HasValue && hastaFecha.HasValue) 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.EntradaId == idEntrada && e.Fecha.Date >= desdeFecha.Value && e.Fecha.Date <= hastaFecha.Value);
+                } 
+                else 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.EntradaId == idEntrada);
+                }
+            }
+            else if (filtro == "Concepto") 
+            {
+                if (desdeFecha.HasValue && hastaFecha.HasValue) 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.Concepto.Trim().ToLower().Contains(valorFiltro.Trim().ToLower()) && e.Fecha.Date >= desdeFecha.Value && e.Fecha.Date <= hastaFecha.Value);
+                } 
+                else 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.Concepto.Trim().ToLower().Contains(valorFiltro.Trim().ToLower()));
+                }
+            }
+            else if (filtro == "Total")
+            {
+                if (desdeTotal.HasValue ^ hastaTotal.HasValue) 
+                {
+                    errorMensaje = "Debe introducir ambos rangos del total para filtrar.";
+                    return;
+                }
+
+                if (!desdeTotal.HasValue && !hastaTotal.HasValue)
+                {
+                    errorMensaje = "Debe introducir un rango de total para filtrar.";
+                    return;
+                }
+
+                if (desdeFecha.HasValue && hastaFecha.HasValue) 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.Total >= desdeTotal!.Value && e.Total <= hastaTotal!.Value && e.Fecha.Date >= desdeFecha.Value && e.Fecha.Date <= hastaFecha.Value);
+                } 
+                else 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.Total >= desdeTotal!.Value && e.Total <= hastaTotal!.Value);
+                }
+            }
+            else 
+            {
+                if (desdeFecha.HasValue && hastaFecha.HasValue) 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0 && e.Fecha.Date >= desdeFecha.Value && e.Fecha.Date <= hastaFecha.Value);
+                } 
+                else 
+                {
+                    entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0);
+                }
+            }
+        }
+        else 
+        {
+            if (desdeFecha.HasValue && hastaFecha.HasValue) 
+            {
+                entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0 && e.Fecha.Date >= desdeFecha.Value && e.Fecha.Date <= hastaFecha.Value);
+            } 
+            else 
+            {
+                entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0);
+            }
+        }
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        filtro = string.Empty;
+        valorFiltro = string.Empty;
+        desdeFecha = null;
+        hastaFecha = null;
+        desdeTotal = null;
+        hastaTotal = null;
+        entradas = await entradasInventarioService.Listar(e => e.EntradaId > 0);
+    }
+}
