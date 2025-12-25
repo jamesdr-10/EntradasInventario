@@ -45,17 +45,12 @@
                 <hr />
                 <div>
                     <p>
+                        <a
                             href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Registrarme
+                            como nuevo usuario</a>
                     </p>
                 </div>
             </EditForm>
-        </section>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr />
-            <ExternalLoginPicker />
         </section>
     </div>
 </div>
@@ -88,41 +83,22 @@
 
     public async Task LoginUser()
     {
-        if (!string.IsNullOrEmpty(Input.Passkey?.Error))
+        SignInResult result;
+
+        // If doing a password sign-in, validate the form.
+        if (!editContext.Validate())
         {
-            errorMessage = $"Error: {Input.Passkey.Error}";
             return;
         }
 
-        SignInResult result;
-        if (!string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
-        {
-            // When performing passkey sign-in, don't perform form validation.
-            result = await SignInManager.PasskeySignInAsync(Input.Passkey.CredentialJson);
-        }
-        else
-        {
-            // If doing a password sign-in, validate the form.
-            if (!editContext.Validate())
-            {
-                return;
-            }
-
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
-        }
+        // This doesn't count login failures towards account lockout
+        // To enable password failures to trigger account lockout, set lockoutOnFailure: true
+        result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
             RedirectManager.RedirectTo(ReturnUrl);
-        }
-        else if (result.RequiresTwoFactor)
-        {
-            RedirectManager.RedirectTo(
-                "Account/LoginWith2fa",
-                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
         }
         else if (result.IsLockedOut)
         {
@@ -147,7 +123,5 @@
 
         [Display(Name = "Recordarme?")]
         public bool RememberMe { get; set; }
-
-        public PasskeyInputModel? Passkey { get; set; }
     }
 }
