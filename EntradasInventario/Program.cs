@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using EntradasInventario.Components;
 using EntradasInventario.Components.Account;
 using EntradasInventario.Data;
+using EntradasInventario.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,7 +37,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddScoped<ProductosService>();
+builder.Services.AddScoped<EntradasInventarioService>();
 
 var app = builder.Build();
 
